@@ -140,7 +140,7 @@ class MDFeeder(Thread):
         self.logger = logging.getLogger(self.__class__.__name__)
         # self.heart_beat = HeartBeatHandler()
 
-    def init(self, periods=['1min', '60min', '1day']):
+    def init(self):
         """
         初始化，订阅行情
         默认1分钟、1小时、1日
@@ -165,46 +165,46 @@ class MDFeeder(Thread):
         # self.ws_list.append(BitMEXWebsocket(endpoint=endpoint, symbol="XBTUSD", api_key=None, api_secret=None))
         symbol_list_len = len(symbol_list)
         self.logger.info('订阅实时行情 %d 项：%s', symbol_list_len, symbol_list)
-        for num, symbol in enumerate(symbol_list):
-            self.ws_list.append(BitMEXWebsocket(endpoint=self.endpoint, symbol=symbol, api_key=None, api_secret=None))
-            # self.logger.debug('订阅实时行情：%s', symbol)
+        # for num, symbol in enumerate(symbol_list):
+        #     self.ws_list.append(BitMEXWebsocket(endpoint=self.endpoint, symbol=symbol, api_key=None, api_secret=None))
+        #     # self.logger.debug('订阅实时行情：%s', symbol)
 
         # Tick 数据插入
-        handler = DBHandler(period='1min', db_model=MDTick, save_tick=True)
-        self.hb.register_handler(handler)
-        time.sleep(1)
-        # 其他周期数据插入
-        for period in periods:
-            save_tick = False
-            if period == '1min':
-                db_model = MDMin1
-            elif period == '60min':
-                db_model = MDMin60
-                # save_tick = True
-            elif period == '1day':
-                db_model = MDMinDaily
-            else:
-                self.logger.warning(f'{period} 不是有效的周期')
-                continue
-            handler = DBHandler(period=period, db_model=db_model, save_tick=save_tick)
-            self.hb.register_handler(handler)
-            logger.info('注册 %s 处理句柄', handler.name)
-            time.sleep(1)
+        # handler = DBHandler(period='1min', db_model=MDTick, save_tick=True)
+        # self.hb.register_handler(handler)
+        # time.sleep(1)
+        # # 其他周期数据插入
+        # for period in periods:
+        #     save_tick = False
+        #     if period == '1min':
+        #         db_model = MDMin1
+        #     elif period == '60min':
+        #         db_model = MDMin60
+        #         # save_tick = True
+        #     elif period == '1day':
+        #         db_model = MDMinDaily
+        #     else:
+        #         self.logger.warning(f'{period} 不是有效的周期')
+        #         continue
+        #     handler = DBHandler(period=period, db_model=db_model, save_tick=save_tick)
+        #     self.hb.register_handler(handler)
+        #     logger.info('注册 %s 处理句柄', handler.name)
+        #     time.sleep(1)
 
         # 数据redis广播
-        if Config.REDIS_PUBLISHER_ENABLE and check_redis():
-            handler = PublishHandler(market=Config.MARKET_NAME)
-            self.hb.register_handler(handler)
-            logger.info('注册 %s 处理句柄', handler.name)
+        # if Config.REDIS_PUBLISHER_ENABLE and check_redis():
+        #     handler = PublishHandler(market=Config.MARKET_NAME)
+        #     self.hb.register_handler(handler)
+        #     logger.info('注册 %s 处理句柄', handler.name)
 
         # Heart Beat
-        self.hb.register_handler(self.heart_beat)
-        logger.info('注册 %s 处理句柄', self.heart_beat.name)
-
-        server_datetime = self.get_server_datetime()
-        logger.info("api.服务期时间 %s 与本地时间差： %f 秒",
-                    server_datetime, (datetime.now() - server_datetime).total_seconds())
-        self.check_state()
+        # self.hb.register_handler(self.heart_beat)
+        # logger.info('注册 %s 处理句柄', self.heart_beat.name)
+        #
+        # server_datetime = self.get_server_datetime()
+        # logger.info("api.服务期时间 %s 与本地时间差： %f 秒",
+        #             server_datetime, (datetime.now() - server_datetime).total_seconds())
+        # self.check_state()
 
     def stop(self):
         self.hb.stop()

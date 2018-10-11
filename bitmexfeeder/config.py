@@ -18,8 +18,8 @@ class ConfigBase:
     # api configuration
     # https://testnet.bitmex.com/app/apiKeys
     TEST_NET = True
-    EXCHANGE_PUBLIC_KEY = "***"
-    EXCHANGE_SECRET_KEY = "***"
+    EXCHANGE_PUBLIC_KEY = "K5DaKlClbXg_TQn5lEGOswd8"
+    EXCHANGE_SECRET_KEY = "QQwPpUpCUcJwtqFIsDXevMqhEPUM3eanZUnzlSpYGqaLIbph"
 
     # mysql db info
     DB_SCHEMA_MD = 'md_bitmex'
