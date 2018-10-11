@@ -7,6 +7,7 @@
 @contact : mmmaaaggg@163.com
 @desc    : 
 """
+import pandas as pd
 from bravado.client import CallableOperation
 from ibats_common.utils.mess import try_n_times, log_param_when_exception
 import logging
@@ -28,7 +29,7 @@ def try_call_func(func: CallableOperation, *args, **kwargs) -> (list, RequestsRe
     return func(*args, **kwargs).result()
 
 
-def load_against_pagination(func: CallableOperation, page_no_since=0, count=500) -> list:
+def load_against_pagination(func: CallableOperation, page_no_since=0, count=500) -> pd.DataFrame:
     """
     调用接口函数，自动翻译加载全部数据并返回结果
     :param func:
@@ -39,7 +40,8 @@ def load_against_pagination(func: CallableOperation, page_no_since=0, count=500)
     page_no = page_no_since
     ret_list = []
     while True:
-        logger.debug('call %s(start=%s, count=%s)', func.__name__, page_no, count)
+        logger.debug('%s call %s(start=%s, count=%s)',
+                     func.operation.path_name, func.operation.operation_id, page_no, count)
         data_list, rsp = try_call_func(func, start=page_no, count=count)  # <class 'bravado.http_future.HttpFuture'>
         if rsp is None:
             break
@@ -47,7 +49,12 @@ def load_against_pagination(func: CallableOperation, page_no_since=0, count=500)
             break
         ret_list.extend(data_list)
         page_no += 1
-    return ret_list
+
+    if len(ret_list)>0:
+        ret_df = pd.DataFrame(ret_list)
+    else:
+        ret_df = None
+    return ret_df
 
 
 if __name__ == "__main__":

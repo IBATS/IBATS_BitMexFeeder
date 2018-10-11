@@ -174,3 +174,6 @@ crashlytics.properties
 crashlytics-build.properties
 fabric.properties
 /config.py
+
+# other files
+*.bat

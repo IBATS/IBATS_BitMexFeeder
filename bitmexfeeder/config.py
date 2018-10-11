@@ -18,18 +18,18 @@ class ConfigBase:
     # api configuration
     # https://testnet.bitmex.com/app/apiKeys
     TEST_NET = True
-    EXCHANGE_PUBLIC_KEY = "K5DaKlClbXg_TQn5lEGOswd8"
-    EXCHANGE_SECRET_KEY = "QQwPpUpCUcJwtqFIsDXevMqhEPUM3eanZUnzlSpYGqaLIbph"
+    EXCHANGE_PUBLIC_KEY = "***"
+    EXCHANGE_SECRET_KEY = "***"
 
     # mysql db info
     DB_SCHEMA_MD = 'md_bitmex'
     DB_URL_DIC = {
-        DB_SCHEMA_MD: 'mysql://mg:Abcd1234@10.0.3.66/' + DB_SCHEMA_MD
+        DB_SCHEMA_MD: 'mysql://mg:Abcd1234@localhost/' + DB_SCHEMA_MD
     }
 
     # redis info
     REDIS_PUBLISHER_ENABLE = False
-    REDIS_INFO_DIC = {'REDIS_HOST': '192.168.239.131',
+    REDIS_INFO_DIC = {'REDIS_HOST': 'localhost',
                       'REDIS_PORT': '6379',
                       }
 

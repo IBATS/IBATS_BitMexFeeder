@@ -12,6 +12,117 @@ from bitmex_websocket import BitMEXWebsocket
 import bitmex
 from bitmexfeeder.config import config
 import logging
+from bitmexfeeder.utils.mess import load_against_pagination
+from sqlalchemy.types import String, Date, DateTime, Time, Integer, Boolean
+from sqlalchemy.dialects.mysql import DOUBLE
+from ibats_common.utils.db import bunch_insert_on_duplicate_update, with_db_session
+from bitmexfeeder.backend import engine_md
+
+DTYPE_INSTRUMENT = {
+    'symbol': String(20),
+    'rootSymbol': String(10),
+    'state': String(20),
+    'typ': String(10),
+    'listing': String(20),
+    'front': String(20),
+    'expiry': String(20),
+    'settle': String(20),
+    'relistInterval': String(20),
+    'inverseLeg': String(20),
+    'sellLeg': String(20),
+    'buyLeg': String(20),
+    'optionStrikePcnt': DOUBLE,
+    'optionStrikeRound': DOUBLE,
+    'optionStrikePrice': DOUBLE,
+    'optionMultiplier': DOUBLE,
+    'positionCurrency': String(20),
+    'underlying': String(20),
+    'quoteCurrency': String(20),
+    'underlyingSymbol': String(20),
+    'reference': String(20),
+    'referenceSymbol': String(20),
+    'calcInterval': DateTime,
+    'publishInterval': DateTime,
+    'publishTime': DateTime,
+    'maxOrderQty': DOUBLE,
+    'maxPrice': DOUBLE,
+    'lotSize': DOUBLE,
+    'tickSize': DOUBLE,
+    'multiplier': DOUBLE,
+    'settlCurrency': String(20),
+    'underlyingToPositionMultiplier': DOUBLE,
+    'underlyingToSettleMultiplier': DOUBLE,
+    'quoteToSettleMultiplier': DOUBLE,
+    'isQuanto': Boolean,
+    'isInverse': Boolean,
+    'initMargin': DOUBLE,
+    'maintMargin': DOUBLE,
+    'riskLimit': DOUBLE,
+    'riskStep': DOUBLE,
+    'limit': DOUBLE,
+    'capped': Boolean,
+    'taxed': Boolean,
+    'deleverage': Boolean,
+    'makerFee': DOUBLE,
+    'takerFee': DOUBLE,
+    'settlementFee': DOUBLE,
+    'insuranceFee': DOUBLE,
+    'fundingBaseSymbol': String(20),
+    'fundingQuoteSymbol': String(20),
+    'fundingPremiumSymbol': String(20),
+    'fundingTimestamp': DOUBLE,
+    'fundingInterval': DOUBLE,
+    'fundingRate': DOUBLE,
+    'indicativeFundingRate': DOUBLE,
+    'rebalanceTimestamp': DOUBLE,
+    'rebalanceInterval': DOUBLE,
+    'openingTimestamp': DOUBLE,
+    'closingTimestamp': DOUBLE,
+    'sessionInterval': DOUBLE,
+    'prevClosePrice': DOUBLE,
+    'limitDownPrice': DOUBLE,
+    'limitUpPrice': DOUBLE,
+    'bankruptLimitDownPrice': DOUBLE,
+    'bankruptLimitUpPrice': DOUBLE,
+    'prevTotalVolume': DOUBLE,
+    'totalVolume': DOUBLE,
+    'volume': DOUBLE,
+    'volume24h': DOUBLE,
+    'prevTotalTurnover': DOUBLE,
+    'totalTurnover': DOUBLE,
+    'turnover': DOUBLE,
+    'turnover24h': DOUBLE,
+    'homeNotional24h': DOUBLE,
+    'foreignNotional24h': DOUBLE,
+    'prevPrice24h': DOUBLE,
+    'vwap': DOUBLE,
+    'highPrice': DOUBLE,
+    'lowPrice': DOUBLE,
+    'lastPrice': DOUBLE,
+    'lastPriceProtected': DOUBLE,
+    'lastTickDirection': String(20),
+    'lastChangePcnt': DOUBLE,
+    'bidPrice': DOUBLE,
+    'midPrice': DOUBLE,
+    'askPrice': DOUBLE,
+    'impactBidPrice': DOUBLE,
+    'impactMidPrice': DOUBLE,
+    'impactAskPrice': DOUBLE,
+    'hasLiquidity': Boolean,
+    'openInterest': DOUBLE,
+    'openValue': DOUBLE,
+    'fairMethod': String(20),
+    'fairBasisRate': DOUBLE,
+    'fairBasis': DOUBLE,
+    'fairPrice': DOUBLE,
+    'markMethod': String(20),
+    'markPrice': DOUBLE,
+    'indicativeTaxRate': DOUBLE,
+    'indicativeSettlePrice': DOUBLE,
+    'optionUnderlyingPrice': DOUBLE,
+    'settledPrice': DOUBLE,
+    'timestamp': DateTime
+}
 
 
 class MDFeeder(Thread):
@@ -37,37 +148,27 @@ class MDFeeder(Thread):
         :return:
         """
 
+        table_name = 'bitmex_instrument'
         if self.do_init_symbols:
             # 获取有效的交易对信息保存（更新）数据库
-            ret = self.api.Instrument.Instrument_get
-            key_mapping = {
-                'base-currency': 'base_currency',
-                'quote-currency': 'quote_currency',
-                'price-precision': 'price_precision',
-                'amount-precision': 'amount_precision',
-                'symbol-partition': 'symbol_partition',
-            }
-            # 获取支持的交易对
-            data_dic_list = []
-            for d in ret['data']:
-                d['market'] = Config.MARKET_NAME  # 'huobi'
-                data_dic_list.append({key_mapping.setdefault(k, k): v for k, v in d.items()})
-
-            with with_db_session(engine_md) as session:
-                session.execute(SymbolPair.__table__.insert(on_duplicate_key_update=True), data_dic_list)
-
-            available_pairs = [d['base_currency'] + d['quote_currency']
-                               for d in data_dic_list if d['symbol_partition'] in symbol_partition_set]
-
-            # 通过 on_open 方式进行订阅总是无法成功
-            for pair, period in itertools.product(available_pairs, periods):
-                self.hb.sub_dict[pair+period] = {'id': '', 'topic': f'market.{pair}.kline.{period}'}
+            ret_df = load_against_pagination(self.api.Instrument.Instrument_get)
+            data_count = bunch_insert_on_duplicate_update(
+                ret_df, table_name, engine_md, dtype=DTYPE_INSTRUMENT, myisam_if_create_table=True)
+            self.logger.info('更新 instrument 信息 %d 条', data_count)
+            symbol_list = list(ret_df['symbol'])
         else:
-            self.hb.sub_dict['ethbtc60'] = {'id': '', 'topic': 'market.ethbtc.kline.60min'}
-            # self.hb.sub_dict['ethusdt'] = {'id': '', 'topic': 'market.ethusdt.kline.1min'}
-            self.hb.sub_dict['ethusdt60'] = {'id': '', 'topic': 'market.ethusdt.kline.60min'}
+            sql_str = f'select symbol from {table_name}'
+            with with_db_session(engine_md) as session:
+                symbol_list = list(session.execute(sql_str).fetchall())
 
-        # handler = SimpleHandler('simple handler')
+        # 订阅 instrument
+        # self.ws_list.append(BitMEXWebsocket(endpoint=endpoint, symbol="XBTUSD", api_key=None, api_secret=None))
+        symbol_list_len = len(symbol_list)
+        self.logger.info('订阅实时行情 %d 项：%s', symbol_list_len, symbol_list)
+        for num, symbol in enumerate(symbol_list):
+            self.ws_list.append(BitMEXWebsocket(endpoint=self.endpoint, symbol=symbol, api_key=None, api_secret=None))
+            # self.logger.debug('订阅实时行情：%s', symbol)
+
         # Tick 数据插入
         handler = DBHandler(period='1min', db_model=MDTick, save_tick=True)
         self.hb.register_handler(handler)
@@ -121,7 +222,7 @@ class MDFeeder(Thread):
 
     def get_server_datetime(self):
         ret_data = self.api.get_timestamp()
-        server_datetime = datetime.fromtimestamp(ret_data['data']/1000)
+        server_datetime = datetime.fromtimestamp(ret_data['data'] / 1000)
         return server_datetime
 
     def get_accounts(self):
