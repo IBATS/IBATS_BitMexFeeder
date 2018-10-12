@@ -10,6 +10,7 @@
 from threading import Thread
 from bitmex_websocket import BitMEXWebsocket
 import bitmex
+from pandas._libs.tslibs.timestamps import Timestamp
 from bitmexfeeder.config import config
 from bitmexfeeder.utils.mess import load_against_pagination
 from sqlalchemy.types import String, Date, DateTime, Time, Integer, Boolean
@@ -155,6 +156,10 @@ class MDFeeder(Thread):
         if self.do_init_symbols or not engine_md.has_table(table_name):
             # 获取有效的交易对信息保存（更新）数据库
             ret_df = load_against_pagination(self.api.Instrument.Instrument_get)
+            for key, val in DTYPE_INSTRUMENT.items():
+                if val == DateTime:
+                    ret_df[key] = ret_df[key].apply(
+                        lambda x: x.to_datetime64() if isinstance(x, Timestamp) else None)
             data_count = bunch_insert_on_duplicate_update(
                 ret_df, table_name, engine_md, dtype=DTYPE_INSTRUMENT, myisam_if_create_table=True)
             self.logger.info('更新 instrument 信息 %d 条', data_count)
