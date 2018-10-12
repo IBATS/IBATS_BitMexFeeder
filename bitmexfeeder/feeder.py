@@ -148,12 +148,11 @@ class MDFeeder(Thread):
         """
         初始化，订阅行情
         默认1分钟、1小时、1日
-        :param periods:
         :return:
         """
 
         table_name = 'bitmex_instrument'
-        if self.do_init_symbols:
+        if self.do_init_symbols or not engine_md.has_table(table_name):
             # 获取有效的交易对信息保存（更新）数据库
             ret_df = load_against_pagination(self.api.Instrument.Instrument_get)
             data_count = bunch_insert_on_duplicate_update(
