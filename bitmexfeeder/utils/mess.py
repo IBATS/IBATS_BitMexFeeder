@@ -29,7 +29,7 @@ def try_call_func(func: CallableOperation, *args, **kwargs) -> (list, RequestsRe
     return func(*args, **kwargs).result()
 
 
-def load_against_pagination(func: CallableOperation, page_no_since=0, count=500) -> pd.DataFrame:
+def load_against_pagination(func: CallableOperation, page_no_since=0, count=500, page_no_max=None) -> pd.DataFrame:
     """
     调用接口函数，自动翻译加载全部数据并返回结果
     :param func:
@@ -49,8 +49,10 @@ def load_against_pagination(func: CallableOperation, page_no_since=0, count=500)
             break
         ret_list.extend(data_list)
         page_no += 1
+        if page_no_max is not None and page_no > page_no_max:
+            break
 
-    if len(ret_list)>0:
+    if len(ret_list) > 0:
         ret_df = pd.DataFrame(ret_list)
     else:
         ret_df = None
@@ -60,6 +62,7 @@ def load_against_pagination(func: CallableOperation, page_no_since=0, count=500)
 if __name__ == "__main__":
     import bitmex
     from bitmexfeeder.config import config
+
     api = bitmex.bitmex(test=config.TEST_NET)
     func = api.Instrument.Instrument_get
     # 测试 try_call_func 接口
