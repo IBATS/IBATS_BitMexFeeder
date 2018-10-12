@@ -68,7 +68,7 @@ class ConfigBase:
             },
 
             root={
-                'handlers': ['console_handler'],  # , 'file_handler'
+                'handlers': ['console_handler', 'file_handler'],  #
                 'level': logging.DEBUG,
             }
         )
