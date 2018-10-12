@@ -14,7 +14,7 @@ from pandas._libs.tslibs.timestamps import Timestamp
 from bitmexfeeder.config import config
 from bitmexfeeder.utils.mess import load_against_pagination
 from sqlalchemy.types import String, Date, DateTime, Time, Integer, Boolean
-from sqlalchemy.dialects.mysql import DOUBLE
+from sqlalchemy.dialects.mysql import DOUBLE, TIMESTAMP
 from ibats_common.utils.db import bunch_insert_on_duplicate_update, with_db_session
 from bitmexfeeder.backend import engine_md
 import time
@@ -28,11 +28,11 @@ DTYPE_INSTRUMENT = {
     'rootSymbol': String(10),
     'state': String(20),
     'typ': String(10),
-    'listing': String(20),
-    'front': String(20),
-    'expiry': String(20),
-    'settle': String(20),
-    'relistInterval': String(20),
+    'listing': DateTime,
+    'front': DateTime,
+    'expiry': DateTime,
+    'settle': DateTime,
+    'relistInterval': DateTime,
     'inverseLeg': String(20),
     'sellLeg': String(20),
     'buyLeg': String(20),
@@ -75,15 +75,15 @@ DTYPE_INSTRUMENT = {
     'fundingBaseSymbol': String(20),
     'fundingQuoteSymbol': String(20),
     'fundingPremiumSymbol': String(20),
-    'fundingTimestamp': DOUBLE,
-    'fundingInterval': DOUBLE,
+    'fundingTimestamp': DateTime,
+    'fundingInterval': DateTime,
     'fundingRate': DOUBLE,
     'indicativeFundingRate': DOUBLE,
-    'rebalanceTimestamp': DOUBLE,
-    'rebalanceInterval': DOUBLE,
-    'openingTimestamp': DOUBLE,
-    'closingTimestamp': DOUBLE,
-    'sessionInterval': DOUBLE,
+    'rebalanceTimestamp': DateTime,
+    'rebalanceInterval': DateTime,
+    'openingTimestamp': DateTime,
+    'closingTimestamp': DateTime,
+    'sessionInterval': DateTime,
     'prevClosePrice': DOUBLE,
     'limitDownPrice': DOUBLE,
     'limitUpPrice': DOUBLE,
@@ -120,7 +120,7 @@ DTYPE_INSTRUMENT = {
     'fairBasisRate': DOUBLE,
     'fairBasis': DOUBLE,
     'fairPrice': DOUBLE,
-    'markMethod': String(20),
+    'markMethod': String(30),
     'markPrice': DOUBLE,
     'indicativeTaxRate': DOUBLE,
     'indicativeSettlePrice': DOUBLE,
@@ -157,9 +157,9 @@ class MDFeeder(Thread):
             # 获取有效的交易对信息保存（更新）数据库
             ret_df = load_against_pagination(self.api.Instrument.Instrument_get)
             for key, val in DTYPE_INSTRUMENT.items():
-                if val == DateTime:
+                if val in (DateTime, TIMESTAMP):
                     ret_df[key] = ret_df[key].apply(
-                        lambda x: x.to_datetime64() if isinstance(x, Timestamp) else None)
+                        lambda x: x.strftime('%Y-%m-%d %H-%M-%S') if isinstance(x, Timestamp) else None)
             data_count = bunch_insert_on_duplicate_update(
                 ret_df, table_name, engine_md, dtype=DTYPE_INSTRUMENT, myisam_if_create_table=True)
             self.logger.info('更新 instrument 信息 %d 条', data_count)
