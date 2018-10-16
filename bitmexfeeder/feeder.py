@@ -11,6 +11,8 @@ from threading import Thread
 from bitmex_websocket import BitMEXWebsocket
 import bitmex
 from pandas._libs.tslibs.timestamps import Timestamp
+from sqlalchemy import func
+import pandas as pd
 from bitmexfeeder.config import config
 from bitmexfeeder.utils.mess import load_against_pagination
 from sqlalchemy.types import String, Date, DateTime, Time, Integer, Boolean
@@ -18,9 +20,11 @@ from sqlalchemy.dialects.mysql import DOUBLE, TIMESTAMP
 from ibats_common.utils.db import bunch_insert_on_duplicate_update, with_db_session
 from bitmexfeeder.backend import engine_md
 import time
-from ibats_common.utils.mess import try_n_times
+from ibats_common.utils.mess import try_n_times, date_2_str, datetime_2_str
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
+from bitmexfeeder.backend.orm import MDMin1, MDMin1Temp, MDDaily, MDDailyTemp, MDHour1, MDHour1Temp, MDMin5, MDMin5Temp, \
+    BaseModel
 
 logger = logging.getLogger()
 DTYPE_INSTRUMENT = {
@@ -156,26 +160,29 @@ class MDFeeder(Thread):
         if self.do_init_symbols or not engine_md.has_table(table_name):
             # 获取有效的交易对信息保存（更新）数据库
             ret_df = load_against_pagination(self.api.Instrument.Instrument_get)
+
             for key, val in DTYPE_INSTRUMENT.items():
                 if val in (DateTime, TIMESTAMP):
                     ret_df[key] = ret_df[key].apply(
                         lambda x: x.strftime('%Y-%m-%d %H-%M-%S') if isinstance(x, Timestamp) else None)
             data_count = bunch_insert_on_duplicate_update(
-                ret_df, table_name, engine_md, dtype=DTYPE_INSTRUMENT, myisam_if_create_table=True)
+                ret_df, table_name, engine_md, dtype=DTYPE_INSTRUMENT,
+                myisam_if_create_table=True, primary_keys=['symbol'])
             self.logger.info('更新 instrument 信息 %d 条', data_count)
-            symbol_list = list(ret_df['symbol'])
+            symbol_set = set(list(ret_df[ret_df['state'] == 'Open']['symbol']))
         else:
-            sql_str = f'select symbol from {table_name}'
+            sql_str = f"select symbol from {table_name} where state='Open'"
             with with_db_session(engine_md) as session:
-                symbol_list = list(session.execute(sql_str).fetchall())
+                symbol_set = set(list(session.execute(sql_str).fetchall()))
 
         # 订阅 instrument
         # self.ws_list.append(BitMEXWebsocket(endpoint=endpoint, symbol="XBTUSD", api_key=None, api_secret=None))
-        symbol_list_len = len(symbol_list)
-        self.logger.info('订阅实时行情 %d 项：%s', symbol_list_len, symbol_list)
+        symbol_list_len = len(symbol_set)
+        self.logger.info('订阅实时行情 %d 项：%s', symbol_list_len, symbol_set)
         # for num, symbol in enumerate(symbol_list):
-        #     self.ws_list.append(BitMEXWebsocket(endpoint=self.endpoint, symbol=symbol, api_key=None, api_secret=None))
-        #     # self.logger.debug('订阅实时行情：%s', symbol)
+        #     ws = BitMEXWebsocket(endpoint=endpoint, symbol=symbol, api_key=None, api_secret=None)
+        #     self.ws_list.append(ws)
+        #     self.logger.debug('订阅实时行情：%s', symbol)
 
         # Tick 数据插入
         # handler = DBHandler(period='1min', db_model=MDTick, save_tick=True)
@@ -215,144 +222,94 @@ class MDFeeder(Thread):
         # self.check_state()
 
     def stop(self):
-        self.hb.stop()
+        # 关闭所有 ws
         self.logger.info('结束订阅')
 
-    @property
-    def is_working(self):
-        return (datetime.now() - self.heart_beat.time).total_seconds() < 3600
-
-    def check_state(self):
-        self.check_accounts()
-        data = self.get_balance()
-        for bal in data:
-            self.logger.info(f"{bal['currency']} : {bal['balance']}")
-
-    def get_server_datetime(self):
-        ret_data = self.api.get_timestamp()
-        server_datetime = datetime.fromtimestamp(ret_data['data'] / 1000)
-        return server_datetime
-
-    def get_accounts(self):
-        ret_data = self.api.get_accounts()
-
-        account_info = [acc for acc in ret_data['data']]
-        return account_info
-
-    def check_accounts(self):
-        account_info = self.get_accounts()
-        is_ok = True
-        for acc in account_info:
-            if acc['state'] != 'working':
-                self.logger.error(f'账户[%d] %s %s 状态异常：%s',
-                                  acc['id'], acc['type'], acc['subtype'], acc['state'])
-                is_ok = False
-        return is_ok
-
-    def get_balance(self, no_zero_only=True):
-        ret_data = self.api.get_balance()
-        acc_balance = ret_data['data']['list']
-        if no_zero_only:
-            ret_acc_balance = [balance for balance in acc_balance if balance['balance'] != '0']
-        else:
-            ret_acc_balance = acc_balance
-        return ret_acc_balance
-
-    # def get_orders_info(self, symbol, states='submitted'):
-    #     ret_data = self.api.get_orders_info(symbol=symbol, states=states)
-    #     return ret_data['data']
-
     def run(self):
-        self.hb.run()
         self.logger.info('启动')
         # 补充历史数据
         if self.do_fill_history:
             self.logger.info('开始补充历史数据')
             self.fill_history()
-        while self.is_working:
+        while True:
             time.sleep(5)
 
-    # def fill_history(self, periods=['1day', '1min', '60min']):
-    #     for period in periods:
-    #         if period == '1min':
-    #             model_tot, model_tmp = MDMin1, MDMin1Temp
-    #         elif period == '60min':
-    #             model_tot, model_tmp = MDMin60, MDMin60Temp
-    #         elif period == '1day':
-    #             model_tot, model_tmp = MDMinDaily, MDMinDailyTemp
-    #         else:
-    #             self.logger.warning(f'{period} 不是有效的周期')
-    #
-    #         self.fill_history_period(period, model_tot, model_tmp)
+    def fill_history(self, periods=['1m', '5m', '1h', '1d']):
+        for period in periods:
+            if period == '1m':
+                model_tot, model_tmp = MDMin1, MDMin1Temp
+            elif period == '5m':
+                model_tot, model_tmp = MDMin5, MDMin5Temp
+            elif period == '1h':
+                model_tot, model_tmp = MDHour1, MDHour1Temp
+            elif period == '1d':
+                model_tot, model_tmp = MDDaily, MDDailyTemp
+            else:
+                self.logger.warning(f'{period} 不是有效的周期')
 
-    # def fill_history_period(self, period, model_tot, model_tmp: MDMin1Temp):
-    #     """
-    #     根据数据库中的支持 symbol 补充历史数据
-    #     :param period:
-    #     :param model_tot:
-    #     :param model_tmp:
-    #     :return:
-    #     """
-    #     with with_db_session(engine_md) as session:
-    #         data = session.query(SymbolPair).filter(
-    #             SymbolPair.market == Config.MARKET_NAME).all()  # , SymbolPair.symbol_partition == 'main'
-    #         pair_datetime_latest_dic = dict(
-    #             session.query(
-    #                 model_tmp.symbol, func.max(model_tmp.ts_start)
-    #             ).filter(model_tmp.market == Config.MARKET_NAME).group_by(model_tmp.symbol).all()
-    #         )
-    #
-    #     # 循环获取每一个交易对的历史数据
-    #     for symbol_info in data:
-    #         symbol = f'{symbol_info.base_currency}{symbol_info.quote_currency}'
-    #         if symbol in pair_datetime_latest_dic:
-    #             datetime_latest = pair_datetime_latest_dic[symbol]
-    #             if period == '1min':
-    #                 second_of_period = 60
-    #             elif period == '60min':
-    #                 second_of_period = 60 * 60
-    #             elif period == '1day':
-    #                 second_of_period = 60 * 60 * 24
-    #             else:
-    #                 self.logger.warning(f'{period} 不是有效的周期')
-    #                 continue
-    #             size = min([2000, int((datetime.now() - datetime_latest).seconds / second_of_period * 1.2)])
-    #         else:
-    #             size = 2000
-    #         if size <= 1:
-    #             continue
-    #         ret = self.get_kline(symbol, period, size=size)
-    #         # for n in range(1, 3):
-    #         #     try:
-    #         #         ret = self.api.get_kline(symbol, period, size=size)
-    #         #     except ProxyError:
-    #         #         self.logger.exception('symbol:%s, period:%s, size=%d', symbol, period, size)
-    #         #         ret = None
-    #         #         time.sleep(5)
-    #         #         continue
-    #         #     break
-    #         if ret is None:
-    #             continue
-    #         if ret['status'] == 'ok':
-    #             data_list = ret['data']
-    #             data_dic_list = []
-    #             for data in data_list:
-    #                 ts_start = datetime.fromtimestamp(data.pop('id'))
-    #                 data['ts_start'] = ts_start
-    #                 data['market'] = Config.MARKET_NAME
-    #                 data['ts_curr'] = ts_start + timedelta(seconds=59)  # , microseconds=999999
-    #                 data['symbol'] = symbol
-    #                 data_dic_list.append(data)
-    #             self._save_md(data_dic_list, symbol, model_tot, model_tmp)
-    #         else:
-    #             self.logger.error(ret)
-    #         # 过于频繁方位可能导致链接失败
-    #         time.sleep(5)  # 已经包含在 try_n_times 里面
+            self.fill_history_period(period, model_tot, model_tmp)
+
+    def fill_history_period(self, period, model_tot: BaseModel, model_tmp: BaseModel):
+        """
+        根据数据库中的支持 symbol 补充历史数据
+        api.Trade.Trade_get(symbol='XBTUSD').result()
+        :param period:
+        :param model_tot:
+        :param model_tmp:
+        :return:
+        """
+        if period not in {'1m', '5m', '1h', '1d'}:
+            logger.error(f'{period} 不是有效的周期')
+            raise ValueError(f'{period} 不是有效的周期')
+
+        # 查找有效的 symbol
+        table_name = 'bitmex_instrument'
+        sql_str = f"select symbol from {table_name} where state='Open'"
+        with with_db_session(engine_md) as session:
+            symbol_set = set(list(session.execute(sql_str).fetchall()))
+            pair_datetime_latest_dic = dict(
+                session.query(
+                    model_tmp.symbol, func.max(model_tmp.ts_start)
+                ).group_by(model_tmp.timestamp).all()
+            )
+
+        # 循环获取每一个交易对的历史数据
+        symbol_set_len = len(symbol_set)
+        for num, symbol in enumerate(symbol_set):
+            if symbol in pair_datetime_latest_dic:
+                datetime_latest = pair_datetime_latest_dic[symbol]
+                datetime_start = datetime_latest + timedelta(minutes=1)
+
+                # 设置 startTime
+                if period == '1m':
+                    size = int((datetime.now() - datetime_start).total_seconds() / 60)
+                elif period == '5m':
+                    size = int((datetime.now() - datetime_start).total_seconds() / 300)
+                elif period == '1h':
+                    size = int((datetime.now() - datetime_start).total_seconds() / 3600)
+                else:  # if period == '1d':
+                    size = (datetime.now() - datetime_start).days
+
+                start_time = datetime_2_str(datetime_start, '%Y-%m-%d %H:%M')
+            else:
+                size = 500
+                start_time = None
+
+            if size <= 0:
+                continue
+
+            ret = self.get_kline(symbol, period, start_time=start_time)
+            if ret is None:
+                continue
+            data_count = bunch_insert_on_duplicate_update(ret, model_tmp.__tablename__, engine_md)
+            logger.info('%d/%d) %s %s 更新 %d 数据成功', num, symbol_set_len, symbol, period, data_count)
 
     @try_n_times(5, sleep_time=5, logger=logger)
-    def get_kline(self, symbol, period, size):
-        ret = self.api.get_kline(symbol, period, size=size)
-        return ret
+    def get_kline(self, symbol, period, start_time=None) -> pd.DataFrame:
+        # ret_df = self.api.Trade.Trade_getBucketed(symbol=symbol, binSize=period, startTime=start_time).result()[0]
+        ret_df = load_against_pagination(self.api.Trade.Trade_getBucketed,
+                                         symbol=symbol, binSize=period, startTime=start_time)
+        return ret_df
 
     # def _save_md(self, data_dic_list, symbol, model_tot: MDMin1, model_tmp: MDMin1Temp):
     #     """
