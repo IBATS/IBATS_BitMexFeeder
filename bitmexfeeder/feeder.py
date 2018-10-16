@@ -266,11 +266,11 @@ class MDFeeder(Thread):
         table_name = 'bitmex_instrument'
         sql_str = f"select symbol from {table_name} where state='Open'"
         with with_db_session(engine_md) as session:
-            symbol_set = set(list(session.execute(sql_str).fetchall()))
+            symbol_set = set([row[0] for row in session.execute(sql_str).fetchall()])
             pair_datetime_latest_dic = dict(
                 session.query(
-                    model_tmp.symbol, func.max(model_tmp.ts_start)
-                ).group_by(model_tmp.timestamp).all()
+                    model_tmp.symbol, func.max(model_tmp.timestamp)
+                ).group_by(model_tmp.symbol).all()
             )
 
         # 循环获取每一个交易对的历史数据
@@ -298,10 +298,11 @@ class MDFeeder(Thread):
             if size <= 0:
                 continue
 
-            ret = self.get_kline(symbol, period, start_time=start_time)
-            if ret is None:
+            ret_df = self.get_kline(symbol, period, start_time=start_time)
+            if ret_df is None:
                 continue
-            data_count = bunch_insert_on_duplicate_update(ret, model_tmp.__tablename__, engine_md)
+            ret_df['timestamp'] = ret_df['timestamp'].apply(datetime_2_str)
+            data_count = bunch_insert_on_duplicate_update(ret_df, model_tmp.__tablename__, engine_md)
             logger.info('%d/%d) %s %s 更新 %d 数据成功', num, symbol_set_len, symbol, period, data_count)
 
     @try_n_times(5, sleep_time=5, logger=logger)
