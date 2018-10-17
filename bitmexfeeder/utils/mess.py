@@ -29,8 +29,8 @@ def try_call_func(func: CallableOperation, *args, **kwargs) -> (list, RequestsRe
     return func(*args, **kwargs).result()
 
 
-def load_against_pagination(func: CallableOperation, page_no_since=0, count=500,
-                            page_no_max=None, drop_duplicates=True, **kwargs) -> pd.DataFrame:
+def load_list_against_pagination(func: CallableOperation, page_no_since=0, count=500,
+                               page_no_max=None, **kwargs) -> list:
     """
     调用接口函数，自动翻译加载全部数据并返回结果
     :param func:
@@ -42,17 +42,17 @@ def load_against_pagination(func: CallableOperation, page_no_since=0, count=500,
     """
     page_no = page_no_since
     ret_list = []
+    param_str = ', '.join(
+        ['{key}={value}'.format(key=str(key), value=str(value))
+         for key, value in kwargs.items()]
+    )
     while True:
-        logger.debug('%s call %s(start=%s, count=%s)',
-                     func.operation.path_name, func.operation.operation_id, page_no, count)
+        logger.debug('%s call %s(start=%s, count=%s, %s)',
+                     func.operation.path_name, func.operation.operation_id, page_no, count, param_str)
         data_list, rsp = try_call_func(func, start=page_no, count=count, **kwargs)
         if rsp is None:
             break
         if rsp.status_code != 200:
-            param_str = ', '.join(
-                ['{key}={value}'.format(key=str(key), value=str(value))
-                 for key, value in kwargs.items()]
-            )
             logger.error("%s(start=%d, count=%d, %s) error status_code=%d, reason=''",
                          func.operation.path_name, page_no, count, param_str, rsp.status_code, rsp.reason)
         if data_list is None or len(data_list) == 0:
@@ -61,6 +61,21 @@ def load_against_pagination(func: CallableOperation, page_no_since=0, count=500,
         page_no += count
         if page_no_max is not None and page_no > page_no_max:
             break
+    return ret_list
+
+
+def load_df_against_pagination(func: CallableOperation, page_no_since=0, count=500,
+                               page_no_max=None, drop_duplicates=True, **kwargs) -> pd.DataFrame:
+    """
+    调用接口函数，自动翻译加载全部数据并返回结果
+    :param func:
+    :param page_no_since:
+    :param count:
+    :param page_no_max:
+    :param drop_duplicates:
+    :return:
+    """
+    ret_list = load_list_against_pagination(func, page_no_since, count, page_no_max, **kwargs)
 
     if len(ret_list) > 0:
         ret_df = pd.DataFrame(ret_list)
@@ -82,5 +97,5 @@ if __name__ == "__main__":
     print(len(data_list))
 
     # 测试 load_against_pagination 接口
-    ret_list = load_against_pagination(func)
+    ret_list = load_df_against_pagination(func)
     print(len(ret_list))

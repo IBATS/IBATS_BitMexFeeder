@@ -12,9 +12,8 @@ from bitmex_websocket import BitMEXWebsocket
 import bitmex
 from pandas._libs.tslibs.timestamps import Timestamp
 from sqlalchemy import func
-import pandas as pd
 from bitmexfeeder.config import config
-from bitmexfeeder.utils.mess import load_against_pagination
+from bitmexfeeder.utils.mess import load_df_against_pagination, load_list_against_pagination
 from sqlalchemy.types import String, Date, DateTime, Time, Integer, Boolean
 from sqlalchemy.dialects.mysql import DOUBLE, TIMESTAMP
 from ibats_common.utils.db import bunch_insert_on_duplicate_update, with_db_session
@@ -23,8 +22,7 @@ import time
 from ibats_common.utils.mess import try_n_times, date_2_str, datetime_2_str
 import logging
 from datetime import datetime, timedelta
-from bitmexfeeder.backend.orm import MDMin1, MDMin1Temp, MDDaily, MDDailyTemp, MDHour1, MDHour1Temp, MDMin5, MDMin5Temp, \
-    BaseModel
+from bitmexfeeder.backend.orm import MDMin1, MDMin1Temp, MDDaily, MDDailyTemp, MDHour1, MDHour1Temp, MDMin5, MDMin5Temp, BaseModel
 
 logger = logging.getLogger()
 DTYPE_INSTRUMENT = {
@@ -159,7 +157,7 @@ class MDFeeder(Thread):
         table_name = 'bitmex_instrument'
         if self.do_init_symbols or not engine_md.has_table(table_name):
             # 获取有效的交易对信息保存（更新）数据库
-            ret_df = load_against_pagination(self.api.Instrument.Instrument_get)
+            ret_df = load_df_against_pagination(self.api.Instrument.Instrument_get)
 
             for key, val in DTYPE_INSTRUMENT.items():
                 if val in (DateTime, TIMESTAMP):
@@ -246,6 +244,7 @@ class MDFeeder(Thread):
                 model_tot, model_tmp = MDDaily, MDDailyTemp
             else:
                 self.logger.warning(f'{period} 不是有效的周期')
+                raise ValueError(f'{period} 不是有效的周期')
 
             self.fill_history_period(period, model_tot, model_tmp)
 
@@ -298,63 +297,67 @@ class MDFeeder(Thread):
             if size <= 0:
                 continue
 
-            ret_df = self.get_kline(symbol, period, start_time=start_time)
-            if ret_df is None:
+            ret_list = self.get_kline(symbol, period, start_time=start_time)
+            if ret_list is None or len(ret_list) == 0:
                 continue
-            ret_df['timestamp'] = ret_df['timestamp'].apply(datetime_2_str)
-            data_count = bunch_insert_on_duplicate_update(ret_df, model_tmp.__tablename__, engine_md)
+            for data_dic in ret_list:
+                data_dic['timestamp'] = datetime_2_str(data_dic['timestamp'])
+            # data_count = bunch_insert_on_duplicate_update(ret_df, model_tmp.__tablename__, engine_md)
+            data_count = self._save_md(ret_list, symbol, model_tot, model_tmp)
             logger.info('%d/%d) %s %s 更新 %d 数据成功', num, symbol_set_len, symbol, period, data_count)
 
     @try_n_times(5, sleep_time=5, logger=logger)
-    def get_kline(self, symbol, period, start_time=None) -> pd.DataFrame:
+    def get_kline(self, symbol, period, start_time=None) -> list:
         # ret_df = self.api.Trade.Trade_getBucketed(symbol=symbol, binSize=period, startTime=start_time).result()[0]
-        ret_df = load_against_pagination(self.api.Trade.Trade_getBucketed,
-                                         symbol=symbol, binSize=period, startTime=start_time)
-        return ret_df
+        ret_list = load_list_against_pagination(self.api.Trade.Trade_getBucketed,
+                                            symbol=symbol, binSize=period, startTime=start_time)
+        return ret_list
 
-    # def _save_md(self, data_dic_list, symbol, model_tot: MDMin1, model_tmp: MDMin1Temp):
-    #     """
-    #     保存md数据到数据库及文件
-    #     :param data_dic_list:
-    #     :param symbol:
-    #     :param model_tot:
-    #     :param model_tmp:
-    #     :return:
-    #     """
-    #
-    #     if data_dic_list is None or len(data_dic_list) == 0:
-    #         self.logger.warning("data_dic_list 为空")
-    #         return
-    #
-    #     md_count = len(data_dic_list)
-    #     # 保存到数据库
-    #     with with_db_session(engine_md) as session:
-    #         try:
-    #             # session.execute(self.md_orm_table_insert, data_dic_list)
-    #             session.execute(model_tmp.__table__.insert(on_duplicate_key_update=True), data_dic_list)
-    #             self.logger.info('%d 条 %s 历史数据 -> %s 完成', md_count, symbol, model_tmp.__tablename__)
-    #             sql_str = f"""insert into {model_tot.__tablename__} select * from {model_tmp.__tablename__}
-    #             where market=:market and symbol=:symbol
-    #             ON DUPLICATE KEY UPDATE open=VALUES(open), high=VALUES(high), low=VALUES(low), close=VALUES(close)
-    #             , amount=VALUES(amount), vol=VALUES(vol), count=VALUES(count)"""
-    #             session.execute(sql_str, params={"symbol": symbol, "market": Config.MARKET_NAME})
-    #             datetime_latest = session.query(
-    #                 func.max(model_tmp.ts_start).label('ts_start_latest')
-    #             ).filter(
-    #                 model_tmp.symbol == symbol,
-    #                 model_tmp.market == Config.MARKET_NAME
-    #             ).scalar()
-    #             # issue:
-    #             # https://stackoverflow.com/questions/9882358/how-to-delete-rows-from-a-table-using-an-sqlalchemy-query-without-orm
-    #             delete_count = session.query(model_tmp).filter(
-    #                 model_tmp.market == Config.MARKET_NAME,
-    #                 model_tmp.symbol == symbol,
-    #                 model_tmp.ts_start < datetime_latest
-    #             ).delete()
-    #             self.logger.debug('%d 条 %s 历史数据被清理，最新数据日期 %s', delete_count, symbol, datetime_latest)
-    #             session.commit()
-    #         except:
-    #             self.logger.exception('%d 条 %s 数据-> %s 失败', md_count, symbol, model_tot.__tablename__)
+    def _save_md(self, data_dic_list, symbol, model_tot: MDMin1, model_tmp: MDMin1Temp):
+        """
+        保存md数据到数据库及文件
+        :param data_dic_list:
+        :param symbol:
+        :param model_tot:
+        :param model_tmp:
+        :return:
+        """
+
+        if data_dic_list is None:
+            self.logger.warning("data_dic_list 为空")
+            return
+
+        md_count = len(data_dic_list)
+        if md_count == 0:
+            self.logger.warning("data_dic_list len is 0")
+            return
+        # 保存到数据库
+        with with_db_session(engine_md) as session:
+            try:
+                # session.execute(self.md_orm_table_insert, data_dic_list)
+                session.execute(model_tmp.__table__.insert(on_duplicate_key_update=True), data_dic_list)
+                self.logger.info('%d 条 %s 历史数据 -> %s 完成', md_count, symbol, model_tmp.__tablename__)
+                sql_str = f"""insert into `{model_tot.__tablename__}` select * from `{model_tmp.__tablename__}`
+                where symbol=:symbol
+                ON DUPLICATE KEY UPDATE open=VALUES(open), high=VALUES(high), low=VALUES(low), close=VALUES(close)
+                , trades=VALUES(trades), volume=VALUES(volume), vwap=VALUES(vwap), lastSize=VALUES(lastSize)
+                , turnover=VALUES(turnover), homeNotional=VALUES(homeNotional), foreignNotional=VALUES(foreignNotional)"""
+                session.execute(sql_str, params={"symbol": symbol})
+                datetime_latest = session.query(
+                    func.max(model_tmp.timestamp).label('ts_latest')
+                ).filter(
+                    model_tmp.symbol == symbol
+                ).scalar()
+                # issue:
+                # https://stackoverflow.com/questions/9882358/how-to-delete-rows-from-a-table-using-an-sqlalchemy-query-without-orm
+                delete_count = session.query(model_tmp).filter(
+                    model_tmp.symbol == symbol,
+                    model_tmp.timestamp < datetime_latest
+                ).delete()
+                self.logger.debug('%d 条 %s 历史数据被清理，最新数据日期 %s', delete_count, symbol, datetime_latest)
+                session.commit()
+            except:
+                self.logger.exception('%d 条 %s 数据-> %s 失败', md_count, symbol, model_tot.__tablename__)
 
 
 def start_supplier(init_symbols=False, do_fill_history=False) -> MDFeeder:
