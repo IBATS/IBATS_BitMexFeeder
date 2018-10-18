@@ -361,7 +361,7 @@ class MDFeeder(Thread):
 
 
 def start_supplier(init_symbols=False, do_fill_history=False) -> MDFeeder:
-    supplier = MDFeeder(do_init_symbols=init_symbols, do_fill_history=do_fill_history)
-    supplier.init()
-    supplier.start()
-    return supplier
+    feeder = MDFeeder(do_init_symbols=init_symbols, do_fill_history=do_fill_history)
+    feeder.init()
+    feeder.start()
+    return feeder
