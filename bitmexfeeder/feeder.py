@@ -23,8 +23,8 @@ import time
 from ibats_common.utils.mess import try_n_times, date_2_str, datetime_2_str
 import logging
 from datetime import datetime, timedelta
-from bitmexfeeder.backend.orm import MDMin1, MDMin1Temp, MDDaily, MDDailyTemp, MDHour1, MDHour1Temp, MDMin5, MDMin5Temp, \
-    BaseModel
+from bitmexfeeder.backend.orm import MDMin1, MDMin1Temp, MDDaily, MDDailyTemp, MDHour1, MDHour1Temp, \
+    MDMin5, MDMin5Temp,  BaseModel
 from bitmexfeeder.backend.handler import DBHandler, PublishHandler, SimpleHandler
 from ibats_common.common import PeriodType
 
@@ -149,6 +149,7 @@ class MDFeeder(Thread):
         self.do_init_symbols = do_init_symbols
         self.do_fill_history = do_fill_history
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.is_working = True
         # self.heart_beat = HeartBeatHandler()
 
     def init(self):
@@ -219,7 +220,7 @@ class MDFeeder(Thread):
         if self.do_fill_history:
             self.logger.info('开始补充历史数据')
             self.fill_history()
-        while True:
+        while self.is_working:
             time.sleep(5)
 
     def fill_history(self, periods=['1m', '5m', '1h', '1d']):
@@ -355,7 +356,7 @@ class MDFeeder(Thread):
                 self.logger.exception('%d 条 %s 数据-> %s 失败', md_count, symbol, table_name)
 
 
-def start_supplier(init_symbols=False, do_fill_history=False) -> MDFeeder:
+def start_feeder(init_symbols=False, do_fill_history=False) -> MDFeeder:
     feeder = MDFeeder(do_init_symbols=init_symbols, do_fill_history=do_fill_history)
     feeder.init()
     feeder.start()
