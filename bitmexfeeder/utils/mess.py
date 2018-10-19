@@ -12,12 +12,13 @@ from bravado.client import CallableOperation
 from ibats_common.utils.mess import try_n_times, log_param_when_exception
 import logging
 from bravado.requests_client import RequestsResponseAdapter
+from bravado.exception import HTTPForbidden
 
 logger = logging.getLogger()
 
 
 # @log_param_when_exception
-@try_n_times(3, sleep_time=1, logger=logger)
+@try_n_times(3, sleep_time=1, logger=logger, exception_exclusion_set={HTTPForbidden})
 def try_call_func(func: CallableOperation, *args, **kwargs) -> (list, RequestsResponseAdapter):
     """
     请求频率限制:对我们的 REST API 的请求频率限于每5分钟300次。 此计数连续补充。 如果你没有登录，你的请求是每5分钟150次。 https://www.bitmex.com/app/restAPI
@@ -49,7 +50,10 @@ def load_list_against_pagination(func: CallableOperation, page_no_since=0, count
     while True:
         logger.debug('%s call %s(start=%s, count=%s, %s)',
                      func.operation.path_name, func.operation.operation_id, page_no, count, param_str)
-        data_list, rsp = try_call_func(func, start=page_no, count=count, **kwargs)
+        try:
+            data_list, rsp = try_call_func(func, start=page_no, count=count, **kwargs)
+        except:
+            break
         if rsp is None:
             break
         if rsp.status_code != 200:
