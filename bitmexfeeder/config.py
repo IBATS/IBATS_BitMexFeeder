@@ -22,14 +22,15 @@ class ConfigBase:
     EXCHANGE_SECRET_KEY = "QQwPpUpCUcJwtqFIsDXevMqhEPUM3eanZUnzlSpYGqaLIbph"
 
     # mysql db info
+    DB_HANDLER_ENABLE = True
     DB_SCHEMA_MD = 'md_bitmex'
     DB_URL_DIC = {
         DB_SCHEMA_MD: 'mysql://mg:Abcd1234@localhost/' + DB_SCHEMA_MD
     }
 
     # redis info
-    REDIS_PUBLISHER_ENABLE = False
-    REDIS_INFO_DIC = {'REDIS_HOST': 'localhost',
+    REDIS_PUBLISHER_HANDLER_ENABLE = False
+    REDIS_INFO_DIC = {'REDIS_HOST': 'localhost',  # '192.168.239.131'
                       'REDIS_PORT': '6379',
                       }
 

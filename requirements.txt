@@ -1,3 +1,4 @@
+websocket
 msgpack>=0.5.6
 bitmex
 bitmex-ws

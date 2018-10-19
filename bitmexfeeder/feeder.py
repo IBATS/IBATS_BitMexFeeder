@@ -8,10 +8,11 @@
 @desc    : 
 """
 from threading import Thread
-from bitmex_websocket import BitMEXWebsocket
+from bitmexfeeder.backend.bitmex_ws import BitMexWS, TableNoAuth
 import bitmex
 from pandas._libs.tslibs.timestamps import Timestamp
 from sqlalchemy import func
+from bitmexfeeder.backend.check import check_redis
 from bitmexfeeder.config import config
 from bitmexfeeder.utils.mess import load_df_against_pagination, load_list_against_pagination
 from sqlalchemy.types import String, Date, DateTime, Time, Integer, Boolean
@@ -22,7 +23,10 @@ import time
 from ibats_common.utils.mess import try_n_times, date_2_str, datetime_2_str
 import logging
 from datetime import datetime, timedelta
-from bitmexfeeder.backend.orm import MDMin1, MDMin1Temp, MDDaily, MDDailyTemp, MDHour1, MDHour1Temp, MDMin5, MDMin5Temp, BaseModel
+from bitmexfeeder.backend.orm import MDMin1, MDMin1Temp, MDDaily, MDDailyTemp, MDHour1, MDHour1Temp, MDMin5, MDMin5Temp, \
+    BaseModel
+from bitmexfeeder.backend.handler import DBHandler, PublishHandler, SimpleHandler
+from ibats_common.common import PeriodType
 
 logger = logging.getLogger()
 DTYPE_INSTRUMENT = {
@@ -138,7 +142,7 @@ class MDFeeder(Thread):
     def __init__(self, do_init_symbols=False, do_fill_history=False):
         super().__init__(name='Feeder', daemon=True)
         self.endpoint = "https://testnet.bitmex.com/api/v1" if config.TEST_NET else "https://www.bitmex.com/api/v1"
-        self.ws_list = []  # BitMEXWebsocket(endpoint=endpoint, symbol="XBTUSD", api_key=None, api_secret=None)
+        self.ws = BitMexWS(endpoint=self.endpoint, api_key=None, api_secret=None)
         self.api = bitmex.bitmex(test=config.TEST_NET)
         self.api_auth = bitmex.bitmex(test=config.TEST_NET,
                                       api_key=config.EXCHANGE_PUBLIC_KEY, api_secret=config.EXCHANGE_SECRET_KEY)
@@ -173,42 +177,28 @@ class MDFeeder(Thread):
             with with_db_session(engine_md) as session:
                 symbol_set = set(list(session.execute(sql_str).fetchall()))
 
-        # 订阅 instrument
-        # self.ws_list.append(BitMEXWebsocket(endpoint=endpoint, symbol="XBTUSD", api_key=None, api_secret=None))
-        symbol_list_len = len(symbol_set)
-        self.logger.info('订阅实时行情 %d 项：%s', symbol_list_len, symbol_set)
-        # for num, symbol in enumerate(symbol_list):
-        #     ws = BitMEXWebsocket(endpoint=endpoint, symbol=symbol, api_key=None, api_secret=None)
-        #     self.ws_list.append(ws)
-        #     self.logger.debug('订阅实时行情：%s', symbol)
+        # symbol_list_len = len(symbol_set)
+        # self.logger.info('订阅实时行情 %d 项：%s', symbol_list_len, symbol_set)
 
-        # Tick 数据插入
-        # handler = DBHandler(period='1min', db_model=MDTick, save_tick=True)
-        # self.hb.register_handler(handler)
-        # time.sleep(1)
-        # # 其他周期数据插入
-        # for period in periods:
-        #     save_tick = False
-        #     if period == '1min':
-        #         db_model = MDMin1
-        #     elif period == '60min':
-        #         db_model = MDMin60
-        #         # save_tick = True
-        #     elif period == '1day':
-        #         db_model = MDMinDaily
-        #     else:
-        #         self.logger.warning(f'{period} 不是有效的周期')
-        #         continue
-        #     handler = DBHandler(period=period, db_model=db_model, save_tick=save_tick)
-        #     self.hb.register_handler(handler)
-        #     logger.info('注册 %s 处理句柄', handler.name)
-        #     time.sleep(1)
+        # 订阅 instrument
+        self.ws.register_handler(
+            'db', handler=DBHandler(period=PeriodType.Min1, db_model=MDMin1), table=TableNoAuth.tradeBin1m)
+        self.ws.register_handler(
+            'db', handler=DBHandler(period=PeriodType.Min5, db_model=MDMin5), table=TableNoAuth.tradeBin5m)
+        self.ws.register_handler(
+            'db', handler=DBHandler(period=PeriodType.Hour1, db_model=MDHour1), table=TableNoAuth.tradeBin1h)
+        self.ws.register_handler(
+            'db', handler=DBHandler(period=PeriodType.Day1, db_model=MDDaily), table=TableNoAuth.tradeBin1d)
 
         # 数据redis广播
-        # if Config.REDIS_PUBLISHER_ENABLE and check_redis():
-        #     handler = PublishHandler(market=Config.MARKET_NAME)
-        #     self.hb.register_handler(handler)
-        #     logger.info('注册 %s 处理句柄', handler.name)
+        if config.REDIS_PUBLISHER_HANDLER_ENABLE and check_redis():
+            self.ws.register_handler('publisher', PublishHandler(period=PeriodType.Min1), table=TableNoAuth.tradeBin1m)
+            self.ws.register_handler('publisher', PublishHandler(period=PeriodType.MDMin5),
+                                     table=TableNoAuth.tradeBin5m)
+            self.ws.register_handler('publisher', PublishHandler(period=PeriodType.MDHour1),
+                                     table=TableNoAuth.tradeBin1h)
+            self.ws.register_handler('publisher', PublishHandler(period=PeriodType.MDDaily),
+                                     table=TableNoAuth.tradeBin1d)
 
         # Heart Beat
         # self.hb.register_handler(self.heart_beat)
@@ -300,17 +290,18 @@ class MDFeeder(Thread):
             ret_list = self.get_kline(symbol, period, start_time=start_time)
             if ret_list is None or len(ret_list) == 0:
                 continue
+            ret_list_len = len(ret_list)
             for data_dic in ret_list:
                 data_dic['timestamp'] = datetime_2_str(data_dic['timestamp'])
             # data_count = bunch_insert_on_duplicate_update(ret_df, model_tmp.__tablename__, engine_md)
-            data_count = self._save_md(ret_list, symbol, model_tot, model_tmp)
-            logger.info('%d/%d) %s %s 更新 %d 数据成功', num, symbol_set_len, symbol, period, data_count)
+            self._save_md(ret_list, symbol, model_tot, model_tmp)
+            logger.info('%d/%d) %s %s 更新 %d 数据成功', num, symbol_set_len, symbol, period, ret_list_len)
 
     @try_n_times(5, sleep_time=5, logger=logger)
     def get_kline(self, symbol, period, start_time=None) -> list:
         # ret_df = self.api.Trade.Trade_getBucketed(symbol=symbol, binSize=period, startTime=start_time).result()[0]
         ret_list = load_list_against_pagination(self.api.Trade.Trade_getBucketed,
-                                            symbol=symbol, binSize=period, startTime=start_time)
+                                                symbol=symbol, binSize=period, startTime=start_time)
         return ret_list
 
     def _save_md(self, data_dic_list, symbol, model_tot: MDMin1, model_tmp: MDMin1Temp):
@@ -331,18 +322,22 @@ class MDFeeder(Thread):
         if md_count == 0:
             self.logger.warning("data_dic_list len is 0")
             return
+        table_name = model_tot.__tablename__
         # 保存到数据库
         with with_db_session(engine_md) as session:
             try:
-                # session.execute(self.md_orm_table_insert, data_dic_list)
+                # 插入数据到临时表
                 session.execute(model_tmp.__table__.insert(on_duplicate_key_update=True), data_dic_list)
-                self.logger.info('%d 条 %s 历史数据 -> %s 完成', md_count, symbol, model_tmp.__tablename__)
-                sql_str = f"""insert into `{model_tot.__tablename__}` select * from `{model_tmp.__tablename__}`
-                where symbol=:symbol
-                ON DUPLICATE KEY UPDATE open=VALUES(open), high=VALUES(high), low=VALUES(low), close=VALUES(close)
-                , trades=VALUES(trades), volume=VALUES(volume), vwap=VALUES(vwap), lastSize=VALUES(lastSize)
-                , turnover=VALUES(turnover), homeNotional=VALUES(homeNotional), foreignNotional=VALUES(foreignNotional)"""
+                self.logger.info('%d 条 %s 历史数据 -> %s 完成', md_count, symbol, table_name)
+                # 将临时表数据导入总表
+                sql_str = f"""insert into `{table_name}` 
+                    select * from `{model_tmp.__tablename__}` where symbol=:symbol ON DUPLICATE KEY UPDATE 
+                    open=VALUES(open), high=VALUES(high), low=VALUES(low), close=VALUES(close),
+                    trades=VALUES(trades), volume=VALUES(volume), vwap=VALUES(vwap), lastSize=VALUES(lastSize),
+                    turnover=VALUES(turnover), homeNotional=VALUES(homeNotional), 
+                    foreignNotional=VALUES(foreignNotional)"""
                 session.execute(sql_str, params={"symbol": symbol})
+                # 删除临时表数据，仅保留最新的一条记录
                 datetime_latest = session.query(
                     func.max(model_tmp.timestamp).label('ts_latest')
                 ).filter(
@@ -357,7 +352,7 @@ class MDFeeder(Thread):
                 self.logger.debug('%d 条 %s 历史数据被清理，最新数据日期 %s', delete_count, symbol, datetime_latest)
                 session.commit()
             except:
-                self.logger.exception('%d 条 %s 数据-> %s 失败', md_count, symbol, model_tot.__tablename__)
+                self.logger.exception('%d 条 %s 数据-> %s 失败', md_count, symbol, table_name)
 
 
 def start_supplier(init_symbols=False, do_fill_history=False) -> MDFeeder:
