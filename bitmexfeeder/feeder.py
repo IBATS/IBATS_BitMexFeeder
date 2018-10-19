@@ -212,6 +212,7 @@ class MDFeeder(Thread):
 
     def stop(self):
         # 关闭所有 ws
+        self.ws.exit()
         self.logger.info('结束订阅')
 
     def run(self):
