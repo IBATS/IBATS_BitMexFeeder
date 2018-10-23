@@ -9,6 +9,8 @@
 """
 import logging
 
+logger = logging.getLogger()
+
 
 class ConfigBase:
 
@@ -25,7 +27,7 @@ class ConfigBase:
     DB_HANDLER_ENABLE = True
     DB_SCHEMA_MD = 'md_bitmex'
     DB_URL_DIC = {
-        DB_SCHEMA_MD: 'mysql://mg:Abcd1234@localhost/' + DB_SCHEMA_MD
+        DB_SCHEMA_MD: 'mysql://mg:Dcba1234@localhost/' + DB_SCHEMA_MD
     }
 
     # redis info
@@ -76,14 +78,18 @@ class ConfigBase:
         # 设置日志输出级别
         # logging.getLogger('sqlalchemy.engine').setLevel(logging.WARN)
         # logging.getLogger('requests.packages.urllib3.connectionpool').setLevel(logging.WARNING)
-        # logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
         # logging.getLogger('DBHandler->md_min1_tick_bc').setLevel(logging.INFO)
         # logging.getLogger('DBHandler->md_min1_bc').setLevel(logging.INFO)
         # logging.getLogger('DBHandler->md_min60_bc').setLevel(logging.INFO)
         # logging.getLogger('DBHandler->md_daily_bc').setLevel(logging.INFO)
         # logging.getLogger('MDFeeder').setLevel(logging.INFO)
         # logging.getLogger('md_min1_bc').setLevel(logging.INFO)
-        # logging.getLogger('md_min1_tick_bc').setLevel(logging.INFO)
+        logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
+        logging.getLogger('bravado_core.model').setLevel(logging.INFO)
+        logging.getLogger('bravado.client').setLevel(logging.INFO)
+        logging.getLogger('bravado_core.resource').setLevel(logging.INFO)
+        logging.getLogger('swagger_spec_validator.ref_validators').setLevel(logging.INFO)
+        logging.getLogger('swagger_spec_validator.validator20').setLevel(logging.INFO)
         from logging.config import dictConfig
         dictConfig(logging_config)
 
@@ -92,3 +98,9 @@ class ConfigBase:
 config = ConfigBase()
 # 生产配置
 # config = ConfigProduct()
+
+
+def update_config(config_update: ConfigBase):
+    global config
+    config = config_update
+    logger.info('更新默认配置信息')
