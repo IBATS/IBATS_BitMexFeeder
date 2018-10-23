@@ -8,24 +8,24 @@
 @desc    : 
 """
 from threading import Thread
-from bitmexfeeder.backend.bitmex_ws import BitMexWS, TableNoAuth
+from ibats_bitmex_feeder.backend.bitmex_ws import BitMexWS, TableNoAuth
 import bitmex
 from pandas._libs.tslibs.timestamps import Timestamp
 from sqlalchemy import func
-from bitmexfeeder.backend.check import check_redis
-from bitmexfeeder.config import config
-from bitmexfeeder.utils.mess import load_df_against_pagination, load_list_against_pagination
+from ibats_bitmex_feeder.backend.check import check_redis
+from ibats_bitmex_feeder.config import config
+from ibats_bitmex_feeder.utils.mess import load_df_against_pagination, load_list_against_pagination
 from sqlalchemy.types import String, Date, DateTime, Time, Integer, Boolean
 from sqlalchemy.dialects.mysql import DOUBLE, TIMESTAMP
 from ibats_common.utils.db import bunch_insert_on_duplicate_update, with_db_session
-from bitmexfeeder.backend import engine_md
+from ibats_bitmex_feeder.backend import engine_md
 import time
 from ibats_common.utils.mess import try_n_times, date_2_str, datetime_2_str
 import logging
 from datetime import datetime, timedelta
-from bitmexfeeder.backend.orm import MDMin1, MDMin1Temp, MDDaily, MDDailyTemp, MDHour1, MDHour1Temp, \
+from ibats_bitmex_feeder.backend.orm import MDMin1, MDMin1Temp, MDDaily, MDDailyTemp, MDHour1, MDHour1Temp, \
     MDMin5, MDMin5Temp,  BaseModel
-from bitmexfeeder.backend.handler import DBHandler, PublishHandler, SimpleHandler
+from ibats_bitmex_feeder.backend.handler import DBHandler, PublishHandler, SimpleHandler
 from ibats_common.common import PeriodType
 
 logger = logging.getLogger()

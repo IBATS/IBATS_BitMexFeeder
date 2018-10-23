@@ -16,8 +16,8 @@ from sqlalchemy import Table, MetaData
 from sqlalchemy.orm import sessionmaker
 from ibats_common.utils.redis import get_redis, get_channel
 import json
-from bitmexfeeder.config import config
-from bitmexfeeder.backend import engine_md
+from ibats_bitmex_feeder.config import config
+from ibats_bitmex_feeder.backend import engine_md
 logger = logging.getLogger()
 
 

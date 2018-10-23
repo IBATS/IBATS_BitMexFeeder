@@ -11,8 +11,8 @@ from sqlalchemy import Column, Integer, String, UniqueConstraint, TIMESTAMP, Met
 from sqlalchemy.dialects.mysql import DOUBLE
 from sqlalchemy.ext.declarative import declarative_base
 from ibats_common.utils.db import with_db_session, get_db_session
-from bitmexfeeder.backend import engine_md
-from bitmexfeeder.config import config
+from ibats_bitmex_feeder.backend import engine_md
+from ibats_bitmex_feeder.config import config
 import logging
 
 logger = logging.getLogger()

@@ -8,7 +8,7 @@
 @desc    : 
 """
 from sqlalchemy import create_engine
-from bitmexfeeder.config import config
+from ibats_bitmex_feeder.config import config
 
 engines = {key: create_engine(url) for key, url in config.DB_URL_DIC.items()}
 

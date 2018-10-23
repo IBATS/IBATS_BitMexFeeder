@@ -9,8 +9,8 @@
 """
 import time
 import logging
-from bitmexfeeder.backend.orm import init
-from bitmexfeeder.feeder import start_feeder
+from ibats_bitmex_feeder.backend.orm import init
+from ibats_bitmex_feeder.feeder import start_feeder
 logger = logging.getLogger()
 
 

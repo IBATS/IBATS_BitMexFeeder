@@ -92,7 +92,7 @@ def load_df_against_pagination(func: CallableOperation, page_no_since=0, count=5
 
 if __name__ == "__main__":
     import bitmex
-    from bitmexfeeder.config import config
+    from ibats_bitmex_feeder.config import config
 
     api = bitmex.bitmex(test=config.TEST_NET)
     func = api.Instrument.Instrument_get
