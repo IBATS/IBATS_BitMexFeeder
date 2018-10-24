@@ -1,9 +1,9 @@
+wheel>=0.31.1
 websocket
 msgpack>=0.5.6
 bitmex
 bitmex-ws
 IBATSCommon
-wheel>=0.31.1
 mysqlclient>=1.3.8
 numpy==1.14.4
 pandas==0.23.0
