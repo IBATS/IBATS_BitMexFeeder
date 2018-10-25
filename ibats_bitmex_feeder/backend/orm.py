@@ -18,10 +18,6 @@ import logging
 logger = logging.getLogger()
 BaseModel = declarative_base()
 table_model_dic = {}
-INSTRUMENT_INFO_TABLE_NAME = 'bitmex_instrument'
-# 类型：type(instrument_info_table) :  <class 'sqlalchemy.sql.schema.Table'>
-# 用法：session.execute(instrument_info_table.count()).scalar()
-instrument_info_table = None
 
 
 class MDMin1(BaseModel):
@@ -184,8 +180,9 @@ def dynamic_load_table_model():
     动态加载数据库中所有表model，保存到 table_model_dic
     :return:
     """
+    logger.info('动态加载数据库 %s 的表', config.DB_SCHEMA_MD)
     metadata = MetaData(engine_md)
-    sql_str = """select TABLE_NAME from information_schema.TABLES where table_schema=:table_schema"""
+    sql_str = "select TABLE_NAME from information_schema.TABLES where table_schema=:table_schema"
     with with_db_session(engine_md) as session:
         table_name_list = [row[0] for row in session.execute(
             sql_str, params={'table_schema': config.DB_SCHEMA_MD}).fetchall()]
@@ -194,9 +191,6 @@ def dynamic_load_table_model():
         model = Table(table_name, metadata, autoload=True)
         table_model_dic[table_name] = model
         logger.debug('%d/%d) load table %s', num, table_name_list_len, table_name)
-        if INSTRUMENT_INFO_TABLE_NAME == table_name:
-            global instrument_info_table
-            instrument_info_table = model
 
 
 if __name__ == "__main__":
