@@ -15,6 +15,7 @@ from ibats_common.common import PeriodType
 from ibats_common.utils.mess import bytes_2_str
 from ibats_common.utils.redis import get_channel, get_redis
 from ibats_bitmex_feeder.config import config
+
 logger = logging.getLogger()
 _signal = {}
 

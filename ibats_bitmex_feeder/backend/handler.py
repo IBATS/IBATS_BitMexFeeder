@@ -8,10 +8,7 @@
 @desc    : 
 """
 import logging
-from ibats_common.common import PeriodType
 from prodconpattern import ProducerConsumer
-from ibats_common.utils.mess import datetime_2_str, STR_FORMAT_DATETIME2
-from datetime import datetime
 from sqlalchemy import Table, MetaData
 from sqlalchemy.orm import sessionmaker
 from ibats_common.utils.redis import get_redis, get_channel

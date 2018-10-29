@@ -7,14 +7,13 @@
 @contact : mmmaaaggg@163.com
 @desc    : 
 """
-from sqlalchemy import create_engine
+from ibats_common.utils.redis import get_redis as get_redis_base
 from ibats_bitmex_feeder.config import config
-import logging
+from ibats_common.backend import engines
 
-logger = logging.getLogger()
-engines = {}
-for key, url in config.DB_URL_DIC.items():
-    logger.debug('加载 engine %s: %s', key, url)
-    engines[key] = create_engine(url)
+
+def get_redis():
+    return get_redis_base(config.REDIS_INFO_DIC['REDIS_HOST'], config.REDIS_INFO_DIC['REDIS_PORT'])
+
 
 engine_md = engines[config.DB_SCHEMA_MD]
