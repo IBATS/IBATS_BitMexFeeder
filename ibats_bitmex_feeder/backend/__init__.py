@@ -16,4 +16,8 @@ def get_redis():
     return get_redis_base(config.REDIS_INFO_DIC['REDIS_HOST'], config.REDIS_INFO_DIC['REDIS_PORT'])
 
 
+if config.DB_SCHEMA_MD not in engines:
+    from ibats_common.backend import reload_engine
+    reload_engine()
+
 engine_md = engines[config.DB_SCHEMA_MD]
