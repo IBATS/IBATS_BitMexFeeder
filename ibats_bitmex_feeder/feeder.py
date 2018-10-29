@@ -24,7 +24,8 @@ from ibats_common.utils.mess import try_n_times, date_2_str, datetime_2_str
 import logging
 from datetime import datetime, timedelta
 from ibats_bitmex_feeder.backend.orm import MDMin1, MDMin1Temp, MDDaily, MDDailyTemp, MDHour1, MDHour1Temp, \
-    MDMin5, MDMin5Temp, BaseModel, INSTRUMENT_INFO_TABLE_NAME
+    MDMin5, MDMin5Temp, BaseModel
+from ibats_bitmex_feeder.backend.other_tables import INSTRUMENT_INFO_TABLE_NAME
 from ibats_bitmex_feeder.backend.handler import DBHandler, PublishHandler, SimpleHandler
 from ibats_common.common import PeriodType
 
