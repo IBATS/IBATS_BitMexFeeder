@@ -13,7 +13,7 @@ with open("README.md", "r", encoding='utf-8') as rm:
     long_description = rm.read()
 
 setup(name='IBATS_BitMex_Feeder',
-      version='0.2.5',
+      version='0.2.6',
       description='连接BitMex交易所，获取实时行情、历史行情，保存到mysql数据库同时redis广播，供 ABAT 交易平台进行策略回测、分析，交易使用',
       long_description=long_description,
       long_description_content_type='text/markdown',
@@ -41,7 +41,7 @@ setup(name='IBATS_BitMex_Feeder',
           'msgpack>=0.5.6',
           'bitmex',
           'bitmex-ws',
-          'IBATSCommon',
+          'IBATS_Common',
           'mysqlclient>=1.3.8',
           'numpy==1.14.4',
           'pandas==0.23.0',

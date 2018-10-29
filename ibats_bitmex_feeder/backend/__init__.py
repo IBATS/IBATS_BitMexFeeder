@@ -9,7 +9,12 @@
 """
 from sqlalchemy import create_engine
 from ibats_bitmex_feeder.config import config
+import logging
 
-engines = {key: create_engine(url) for key, url in config.DB_URL_DIC.items()}
+logger = logging.getLogger()
+engines = {}
+for key, url in config.DB_URL_DIC.items():
+    logger.debug('加载 engine %s: %s', key, url)
+    engines[key] = create_engine(url)
 
 engine_md = engines[config.DB_SCHEMA_MD]
