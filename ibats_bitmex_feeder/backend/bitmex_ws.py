@@ -229,7 +229,7 @@ class BitMexWS:
             args = []
         self.ws.send(json.dumps({"op": command, "args": args}))
 
-    def __on_message(self, ws, message):
+    def __on_message(self, message):
         """Handler for parsing WS messages."""
         message = json.loads(message)
         # self.logger.debug(json.dumps(message))
