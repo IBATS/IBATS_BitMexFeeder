@@ -11,7 +11,7 @@ import logging
 from ibats_common.config import ConfigBase as ConBase, update_db_config
 from ibats_common.common import ExchangeName
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class ConfigBase(ConBase):
@@ -29,7 +29,7 @@ class ConfigBase(ConBase):
     DB_HANDLER_ENABLE = True
     DB_SCHEMA_MD = 'md_bitmex'
     DB_URL_DIC = {
-        DB_SCHEMA_MD: 'mysql://mg:****@localhost/' + DB_SCHEMA_MD
+        DB_SCHEMA_MD: 'mysql://m*:****@localhost/' + DB_SCHEMA_MD
     }
 
     # redis info
@@ -64,8 +64,9 @@ config = ConfigBase()
 update_db_config(config.DB_URL_DIC)
 
 
-def update_config(config_new: ConfigBase):
+def update_config(config_new: ConfigBase, update_db=True):
     global config
     config = config_new
     logger.info('更新默认配置信息 %s < %s', ConfigBase, config_new.__class__)
-    update_db_config(config.DB_URL_DIC)
+    if update_db:
+        update_db_config(config.DB_URL_DIC)
