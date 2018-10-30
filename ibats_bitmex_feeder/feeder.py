@@ -282,15 +282,16 @@ class MDFeeder(Thread):
                 else:  # if period == '1d':
                     size = (datetime.now() - datetime_start).days
 
-                start_time = datetime_2_str(datetime_start, '%Y-%m-%d %H:%M:%S')
+                # start_time = datetime_2_str(datetime_start, '%Y-%m-%d %H:%M:%S')
+                # start_time = datetime_start
             else:
                 size = 500
-                start_time = None
+                datetime_start = None
 
             if size <= 0:
                 continue
 
-            ret_list = self.get_kline(symbol, period, start_time=start_time)
+            ret_list = self.get_kline(symbol, period, start_time=datetime_start)
             if ret_list is None or len(ret_list) == 0:
                 continue
             ret_list_len = len(ret_list)
