@@ -150,7 +150,7 @@ class MDFeeder(Thread):
         self.do_init_symbols = do_init_symbols
         self.do_fill_history = do_fill_history
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.is_working = True
+        self.is_working = False
         # self.heart_beat = HeartBeatHandler()
 
     def init(self):
@@ -217,7 +217,9 @@ class MDFeeder(Thread):
         self.logger.info('结束订阅')
 
     def run(self):
+        self.is_working = True
         self.logger.info('启动')
+        self.ws.connect()
         # 补充历史数据
         if self.do_fill_history:
             self.logger.info('开始补充历史数据')
@@ -343,7 +345,7 @@ class MDFeeder(Thread):
                 session.execute(sql_str, params={"symbol": symbol})
                 # 删除临时表数据，仅保留最新的一条记录
                 datetime_latest = session.query(
-                    func.max(model_tmp.timestamp).label('ts_latest')
+                    func.max(model_tmp.timestamp).label('timestamp')
                 ).filter(
                     model_tmp.symbol == symbol
                 ).scalar()
