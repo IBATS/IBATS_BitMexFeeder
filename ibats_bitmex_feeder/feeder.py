@@ -194,13 +194,14 @@ class MDFeeder(Thread):
 
         # 数据redis广播
         if config.REDIS_PUBLISHER_HANDLER_ENABLE and check_redis():
-            self.ws.register_handler('publisher', PublishHandler(period=PeriodType.Min1), table=TableNoAuth.tradeBin1m)
-            self.ws.register_handler('publisher', PublishHandler(period=PeriodType.MDMin5),
-                                     table=TableNoAuth.tradeBin5m)
-            self.ws.register_handler('publisher', PublishHandler(period=PeriodType.MDHour1),
-                                     table=TableNoAuth.tradeBin1h)
-            self.ws.register_handler('publisher', PublishHandler(period=PeriodType.MDDaily),
-                                     table=TableNoAuth.tradeBin1d)
+            self.ws.register_handler(
+                'publisher', PublishHandler(period=PeriodType.Min1), table=TableNoAuth.tradeBin1m)
+            self.ws.register_handler(
+                'publisher', PublishHandler(period=PeriodType.MDMin5), table=TableNoAuth.tradeBin5m)
+            self.ws.register_handler(
+                'publisher', PublishHandler(period=PeriodType.MDHour1), table=TableNoAuth.tradeBin1h)
+            self.ws.register_handler(
+                'publisher', PublishHandler(period=PeriodType.MDDaily), table=TableNoAuth.tradeBin1d)
 
         # Heart Beat
         # self.hb.register_handler(self.heart_beat)

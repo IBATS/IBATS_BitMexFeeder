@@ -289,7 +289,7 @@ class BitMexWS:
                 for name, handler in self.table_handler[table][action].items():
                     self.logger.debug('%s->%s->%s', table, action, name)
                     for data_dic in data:
-                        handler(data_dic)
+                        handler.handle(data_dic)
         except:
             self.logger.error(traceback.format_exc())
 
