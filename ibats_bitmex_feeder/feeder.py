@@ -282,7 +282,7 @@ class MDFeeder(Thread):
                 else:  # if period == '1d':
                     size = (datetime.now() - datetime_start).days
 
-                start_time = datetime_2_str(datetime_start, '%Y-%m-%d %H:%M')
+                start_time = datetime_2_str(datetime_start, '%Y-%m-%d %H:%M:%S')
             else:
                 size = 500
                 start_time = None
