@@ -241,6 +241,8 @@ class MDFeeder(Thread):
                 self.logger.warning(f'{period} 不是有效的周期')
                 raise ValueError(f'{period} 不是有效的周期')
 
+            if not self.is_working:
+                break
             self.fill_history_period(period, model_tot, model_tmp)
 
     def fill_history_period(self, period, model_tot: BaseModel, model_tmp: BaseModel):
@@ -270,6 +272,9 @@ class MDFeeder(Thread):
         # 循环获取每一个交易对的历史数据
         symbol_set_len = len(symbol_set)
         for num, symbol in enumerate(symbol_set):
+            if not self.is_working:
+                break
+
             if symbol in pair_datetime_latest_dic:
                 datetime_latest = pair_datetime_latest_dic[symbol]
                 datetime_start = datetime_latest + timedelta(minutes=1)
