@@ -39,7 +39,7 @@ setup(name='IBATS_BitMex_Feeder',
       install_requires=[
           'websocket',
           'msgpack>=0.5.6',
-          'websocket-client>=0.53.0',
+          'websocket-client>=0.46.0',
           'bitmex',
           'bitmex-ws',
           'IBATS_Common',
