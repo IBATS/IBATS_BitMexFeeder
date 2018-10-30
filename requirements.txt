@@ -1,6 +1,7 @@
 wheel>=0.31.1
 websocket
 msgpack>=0.5.6
+websocket-client>=0.53.0
 bitmex
 bitmex-ws
 IBATS_Common

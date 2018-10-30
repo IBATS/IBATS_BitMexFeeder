@@ -13,7 +13,7 @@ with open("README.md", "r", encoding='utf-8') as rm:
     long_description = rm.read()
 
 setup(name='IBATS_BitMex_Feeder',
-      version='0.3.3',
+      version='0.3.4',
       description='连接BitMex交易所，获取实时行情、历史行情，保存到mysql数据库同时redis广播，供 ABAT 交易平台进行策略回测、分析，交易使用',
       long_description=long_description,
       long_description_content_type='text/markdown',
@@ -39,6 +39,7 @@ setup(name='IBATS_BitMex_Feeder',
       install_requires=[
           'websocket',
           'msgpack>=0.5.6',
+          'websocket-client>=0.53.0',
           'bitmex',
           'bitmex-ws',
           'IBATS_Common',

@@ -111,6 +111,7 @@ class BitMexWS:
         self.logger.debug("Initializing WebSocket.")
         self.endpoint = endpoint
         self.table_handler = defaultdict(lambda: defaultdict(dict))
+        self.ws = None
 
         if api_key is not None and api_secret is None:
             raise ValueError('api_secret is required if api_key is provided')
@@ -142,7 +143,11 @@ class BitMexWS:
     def exit(self):
         """Call this to exit - will close websocket."""
         self.exited = True
-        self.ws.close()
+        try:
+            if self.ws is not None:
+                self.ws.close()
+        except:
+            self.logger.exception('ws.close() Error')
 
     def register_handler(self, name, handler, table='quoteBin1m', actions={'partial', 'insert'}):
         """向ws messsage 事件中注册事件处理具备"""
@@ -157,7 +162,7 @@ class BitMexWS:
     def __connect(self, ws_url):
         """Connect to the websocket in a thread."""
         self.logger.debug("Starting thread")
-
+        import bitmex_websocket
         self.ws = websocket.WebSocketApp(ws_url,
                                          on_message=self.__on_message,
                                          on_close=self.__on_close,
