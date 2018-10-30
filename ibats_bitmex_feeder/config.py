@@ -61,6 +61,7 @@ class ConfigBase(ConBase):
 
 # 测试配置（测试行情库）
 config = ConfigBase()
+update_db_config(config.DB_URL_DIC)
 
 
 def update_config(config_new: ConfigBase):
