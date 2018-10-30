@@ -9,7 +9,7 @@
 """
 import pandas as pd
 from bravado.client import CallableOperation
-from ibats_common.utils.mess import try_n_times, log_param_when_exception, str_2_datetime
+from ibats_common.utils.mess import try_n_times, log_param_when_exception, str_2_datetime, datetime_2_str
 import logging
 from bravado.requests_client import RequestsResponseAdapter
 from bravado.exception import HTTPForbidden
@@ -18,7 +18,7 @@ logger = logging.getLogger()
 
 
 # @log_param_when_exception
-@try_n_times(3, sleep_time=1, logger=logger, exception_exclusion_set={HTTPForbidden})
+@try_n_times(3, sleep_time=1.5, logger=logger, exception_exclusion_set={HTTPForbidden})
 def try_call_func(func: CallableOperation, *args, **kwargs) -> (list, RequestsResponseAdapter):
     """
     请求频率限制:对我们的 REST API 的请求频率限于每5分钟300次。 此计数连续补充。 如果你没有登录，你的请求是每5分钟150次。 https://www.bitmex.com/app/restAPI
@@ -54,9 +54,9 @@ def load_list_against_pagination(func: CallableOperation, start_count=0, count=5
         try:
             data_list, rsp = try_call_func(func, start=start_count_cur, count=count, **kwargs)
         except:
-            logger.exception(
-                '%d) %s call %s(start=%s, count=%s, %s) Error',
-                call_count, func.operation.path_name, func.operation.operation_id, start_count_cur, count, param_str)
+            # logger.exception(
+            #     '%d) %s call %s(start=%s, count=%s, %s) Error',
+            #     call_count, func.operation.path_name, func.operation.operation_id, start_count_cur, count, param_str)
             break
         if rsp is None:
             break
@@ -76,12 +76,12 @@ def load_list_against_pagination(func: CallableOperation, start_count=0, count=5
                                   for item in data_list]
                 timestamp_min, timestamp_max = min(timestamp_list), max(timestamp_list)
                 logger.debug(
-                    '%d) %s call %s(start=%s, count=%s, %s) %d returned from %s ~ %s',
+                    '%d) %s call %s(start=%s, count=%s, %s) %d [%s ~ %s]',
                     call_count, func.operation.path_name, func.operation.operation_id, start_count_cur, count, param_str,
-                    data_list_len, timestamp_min, timestamp_max)
+                    data_list_len, datetime_2_str(timestamp_min), datetime_2_str(timestamp_max))
             else:
                 logger.debug(
-                    '%d) %s call %s(start=%s, count=%s, %s) %d returned',
+                    '%d) %s call %s(start=%s, count=%s, %s) %d data',
                     call_count, func.operation.path_name, func.operation.operation_id, start_count_cur, count, param_str,
                     data_list_len)
         ret_list.extend(data_list)
