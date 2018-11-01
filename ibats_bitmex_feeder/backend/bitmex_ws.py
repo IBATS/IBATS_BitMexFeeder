@@ -54,6 +54,9 @@ from util.api_key import generate_nonce, generate_signature
 from collections import defaultdict
 
 
+DATETIME_FORMAT_STR = "%Y-%m-%dT%H:%M:%S.%fZ"
+
+
 class TableNoAuth:
     announcement = "announcement"  # 网站公告
     chat = "chat"  # Trollbox 聊天室

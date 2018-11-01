@@ -8,11 +8,13 @@
 @desc    : 
 """
 import logging
+from ibats_common.utils.mess import str_2_datetime, datetime_2_str
 from prodconpattern import ProducerConsumer
 from sqlalchemy import Table, MetaData
 from sqlalchemy.orm import sessionmaker
 from ibats_common.utils.redis import get_redis, get_channel
 import json
+from ibats_bitmex_feeder.backend.bitmex_ws import DATETIME_FORMAT_STR
 from ibats_bitmex_feeder.config import config
 from ibats_bitmex_feeder.backend import engine_md
 logger = logging.getLogger()
@@ -56,6 +58,8 @@ class DBHandler(BaseHandler):
         self.md_orm_table_insert = self.md_orm_table.insert(on_duplicate_key_update=True)
 
     def handle(self, msg: dict):
+        # 将数据格式转换成数据库可识别格式
+        msg['timestamp'] = datetime_2_str(str_2_datetime(msg['timestamp'], DATETIME_FORMAT_STR))
         self.save_md(msg)
         self.logger.debug('invoke save_md %s', msg)
 
