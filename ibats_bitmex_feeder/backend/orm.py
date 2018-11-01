@@ -23,7 +23,7 @@ table_model_dic = {}
 class MDMin1(BaseModel):
     __tablename__ = 'md_bitmext_min1'
     timestamp = Column(TIMESTAMP, primary_key=True)
-    symbol = Column(String(10), primary_key=True)
+    symbol = Column(String(20), primary_key=True)
     open = Column(DOUBLE)
     high = Column(DOUBLE)
     low = Column(DOUBLE)
@@ -40,7 +40,7 @@ class MDMin1(BaseModel):
 class MDMin1Temp(BaseModel):
     __tablename__ = 'md_bitmext_min1_temp'
     timestamp = Column(TIMESTAMP, primary_key=True)
-    symbol = Column(String(10), primary_key=True)
+    symbol = Column(String(20), primary_key=True)
     open = Column(DOUBLE)
     high = Column(DOUBLE)
     low = Column(DOUBLE)
@@ -57,7 +57,7 @@ class MDMin1Temp(BaseModel):
 class MDMin5(BaseModel):
     __tablename__ = 'md_bitmext_min5'
     timestamp = Column(TIMESTAMP, primary_key=True)
-    symbol = Column(String(10), primary_key=True)
+    symbol = Column(String(20), primary_key=True)
     open = Column(DOUBLE)
     high = Column(DOUBLE)
     low = Column(DOUBLE)
@@ -74,7 +74,7 @@ class MDMin5(BaseModel):
 class MDMin5Temp(BaseModel):
     __tablename__ = 'md_bitmext_min5_temp'
     timestamp = Column(TIMESTAMP, primary_key=True)
-    symbol = Column(String(10), primary_key=True)
+    symbol = Column(String(20), primary_key=True)
     open = Column(DOUBLE)
     high = Column(DOUBLE)
     low = Column(DOUBLE)
@@ -91,7 +91,7 @@ class MDMin5Temp(BaseModel):
 class MDHour1(BaseModel):
     __tablename__ = 'md_bitmext_hour1'
     timestamp = Column(TIMESTAMP, primary_key=True)
-    symbol = Column(String(10), primary_key=True)
+    symbol = Column(String(20), primary_key=True)
     open = Column(DOUBLE)
     high = Column(DOUBLE)
     low = Column(DOUBLE)
@@ -108,7 +108,7 @@ class MDHour1(BaseModel):
 class MDHour1Temp(BaseModel):
     __tablename__ = 'md_bitmext_hour1_temp'
     timestamp = Column(TIMESTAMP, primary_key=True)
-    symbol = Column(String(10), primary_key=True)
+    symbol = Column(String(20), primary_key=True)
     open = Column(DOUBLE)
     high = Column(DOUBLE)
     low = Column(DOUBLE)
@@ -125,7 +125,7 @@ class MDHour1Temp(BaseModel):
 class MDDaily(BaseModel):
     __tablename__ = 'md_bitmext_daily'
     timestamp = Column(TIMESTAMP, primary_key=True)
-    symbol = Column(String(10), primary_key=True)
+    symbol = Column(String(20), primary_key=True)
     open = Column(DOUBLE)
     high = Column(DOUBLE)
     low = Column(DOUBLE)
@@ -142,7 +142,7 @@ class MDDaily(BaseModel):
 class MDDailyTemp(BaseModel):
     __tablename__ = 'md_bitmext_daily_temp'
     timestamp = Column(TIMESTAMP, primary_key=True)
-    symbol = Column(String(10), primary_key=True)
+    symbol = Column(String(20), primary_key=True)
     open = Column(DOUBLE)
     high = Column(DOUBLE)
     low = Column(DOUBLE)
