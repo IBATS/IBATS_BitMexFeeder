@@ -296,17 +296,17 @@ class BitMexWS:
         except:
             self.logger.error(traceback.format_exc())
 
-    def __on_error(self, ws, error):
+    def __on_error(self, error):
         """Called on fatal websocket errors. We exit on these."""
         if not self.exited:
             self.logger.error("Error : %s" % error)
             raise websocket.WebSocketException(error)
 
-    def __on_open(self, ws):
+    def __on_open(self):
         """Called when the WS opens."""
         self.logger.debug("Websocket Opened.")
 
-    def __on_close(self, ws):
+    def __on_close(self):
         """Called on websocket close."""
         self.logger.info('Websocket Closed')
 
