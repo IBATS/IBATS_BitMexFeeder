@@ -115,6 +115,7 @@ class BitMexWS:
         self.endpoint = endpoint
         self.table_handler = defaultdict(lambda: defaultdict(dict))
         self.ws = None
+        self.ws_closed = True
 
         if api_key is not None and api_secret is None:
             raise ValueError('api_secret is required if api_key is provided')
@@ -176,6 +177,7 @@ class BitMexWS:
         self.wst = threading.Thread(target=lambda: self.ws.run_forever())
         self.wst.daemon = True
         self.wst.start()
+        self.ws_closed = False
         self.logger.debug("Started thread")
 
         # Wait for connect before continuing
@@ -309,6 +311,7 @@ class BitMexWS:
     def __on_close(self):
         """Called on websocket close."""
         self.logger.info('Websocket Closed')
+        self.ws_closed = True
 
 
 # Utility method for finding an item in the store.

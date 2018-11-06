@@ -159,25 +159,25 @@ class MDFeeder(Thread):
         默认1分钟、1小时、1日
         :return:
         """
-
-        table_name = INSTRUMENT_INFO_TABLE_NAME
-        if self.do_init_symbols or not engine_md.has_table(table_name):
-            # 获取有效的交易对信息保存（更新）数据库
-            ret_df = load_df_against_pagination(self.api.Instrument.Instrument_get)
-
-            for key, val in DTYPE_INSTRUMENT.items():
-                if val in (DateTime, TIMESTAMP):
-                    ret_df[key] = ret_df[key].apply(
-                        lambda x: x.strftime('%Y-%m-%d %H-%M-%S') if isinstance(x, Timestamp) else None)
-            data_count = bunch_insert_on_duplicate_update(
-                ret_df, table_name, engine_md, dtype=DTYPE_INSTRUMENT,
-                myisam_if_create_table=True, primary_keys=['symbol'])
-            self.logger.info('更新 instrument 信息 %d 条', data_count)
-            symbol_set = set(list(ret_df[ret_df['state'] == 'Open']['symbol']))
-        else:
-            sql_str = f"select symbol from {table_name} where state='Open'"
-            with with_db_session(engine_md) as session:
-                symbol_set = set(list(session.execute(sql_str).fetchall()))
+        # 订阅所有数据，因此无需查询 symbol 列表
+        # table_name = INSTRUMENT_INFO_TABLE_NAME
+        # if self.do_init_symbols or not engine_md.has_table(table_name):
+        #     # 获取有效的交易对信息保存（更新）数据库
+        #     ret_df = load_df_against_pagination(self.api.Instrument.Instrument_get)
+        #
+        #     for key, val in DTYPE_INSTRUMENT.items():
+        #         if val in (DateTime, TIMESTAMP):
+        #             ret_df[key] = ret_df[key].apply(
+        #                 lambda x: x.strftime('%Y-%m-%d %H-%M-%S') if isinstance(x, Timestamp) else None)
+        #     data_count = bunch_insert_on_duplicate_update(
+        #         ret_df, table_name, engine_md, dtype=DTYPE_INSTRUMENT,
+        #         myisam_if_create_table=True, primary_keys=['symbol'])
+        #     self.logger.info('更新 instrument 信息 %d 条', data_count)
+        #     symbol_set = set(list(ret_df[ret_df['state'] == 'Open']['symbol']))
+        # else:
+        #     sql_str = f"select symbol from {table_name} where state='Open'"
+        #     with with_db_session(engine_md) as session:
+        #         symbol_set = set(list(session.execute(sql_str).fetchall()))
 
         # symbol_list_len = len(symbol_set)
         # self.logger.info('订阅实时行情 %d 项：%s', symbol_list_len, symbol_set)
@@ -212,6 +212,14 @@ class MDFeeder(Thread):
         #             server_datetime, (datetime.now() - server_datetime).total_seconds())
         # self.check_state()
 
+    def reconnect_if_closed(self):
+        """如果 ws 断开，则重新连接"""
+        if self.ws.ws_closed:
+            self.ws.exit()
+            self.ws = BitMexWS(endpoint=self.endpoint, api_key=None, api_secret=None)
+            self.init()
+            self.ws.connect()
+
     def stop(self):
         # 关闭所有 ws
         self.ws.exit()
@@ -225,7 +233,9 @@ class MDFeeder(Thread):
         if self.do_fill_history:
             self.logger.info('开始补充历史数据')
             self.fill_history()
+        time.sleep(5)
         while self.is_working:
+            self.reconnect_if_closed()
             time.sleep(5)
 
     def fill_history(self, periods=['1m', '5m', '1h', '1d']):
