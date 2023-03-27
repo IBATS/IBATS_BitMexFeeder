@@ -47,7 +47,7 @@ setup(name='IBATS_BitMex_Feeder',
           'numpy==1.14.4',
           'pandas==0.23.0',
           'prodconpattern==0.1.1',
-          'redis==2.10.6',
+          'redis==4.5.3',
           'SQLAlchemy==1.2.8',
           'xlrd==1.1.0',
       ])
